@@ -125,7 +125,8 @@ class UpdateDaemon(object):
       if not self.eti:
         self.log.critical("Unable to log into ETI with stored credentials.")
         return
-
+    else:
+      self.eti = None
   def preload(self):
     """
       Tasks to be run after initialization, but before updating.
@@ -161,12 +162,12 @@ class UpdateDaemon(object):
       while 1:
         try:
           self.update()
-          if not self.etiUp and self.eti.etiUp():
+          if self.eti and not self.etiUp and self.eti.etiUp():
             self.log.debug("ETI seems to have recovered. Setting db index.")
             self.etiUp = True
             self.dbs['llBackup'].table('indices').set(value=1).where(name='eti_up').update()
         except albatross.PageLoadError:
-          if self.etiUp and not self.eti.etiUp():
+          if self.eti and self.etiUp and not self.eti.etiUp():
             self.log.debug("ETI seems to be down. Setting db index and retrying.")
             self.etiUp = False
             self.clear_dbs()
@@ -177,7 +178,7 @@ class UpdateDaemon(object):
           self.clear_dbs()
         time.sleep(int(self.config['loop_interval']))
     except albatross.PageLoadError:
-      if self.etiUp and not self.eti.etiUp():
+      if self.eti and self.etiUp and not self.eti.etiUp():
         self.log.debug("ETI seems to be down. Setting db index and exiting.")
         self.etiUp = False
         self.clear_dbs()
