@@ -32,7 +32,7 @@ class UpdateModules(object):
         function()
         self.daemon.flush_dbs()
       except albatross.PageLoadError:
-        if self.daemon.etiUp and not self.daemon.eti.etiUp():
+        if self.daemon.eti and self.daemon.etiUp and not self.daemon.eti.etiUp():
           self.daemon.log.debug("ETI seems to be down. Setting db index and retrying.")
           self.daemon.etiUp = False
           self.daemon.clear_dbs()
