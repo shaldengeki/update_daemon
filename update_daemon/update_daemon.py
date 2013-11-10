@@ -50,6 +50,30 @@ class UpdateDaemon(object):
     self.info = {}
     self.etiUp = True
 
+  def set_dbs(self):
+    # establish database connections with the configurations in self.config['DB']
+    if not hasattr(self, 'dbs') or self.dbs is None:
+      self.dbs = {}
+
+    for connection_name in self.config['DB']:
+      db_info = self.config['DB'][connection_name]
+      self.dbs[connection_name] = DbConn.DbConn(db_info['username'], db_info['password'], db_info['name'])
+
+  def close_dbs(self):
+    # close all database connections that we can.
+    for connection_name in self.dbs:
+      try:
+        self.dbs[connection_name].close()
+      except:
+        # if we can't cleanly end the connection, pass over it.
+        pass
+    self.dbs = {}
+
+  def reset_dbs(self):
+    # clear databases.
+    self.close_dbs()
+    self.set_dbs()
+
   def load_config(self, config_file=None):
     if config_file is not None:
       self.config_file = unicode(config_file)
@@ -80,10 +104,8 @@ class UpdateDaemon(object):
         self.config['MAIL']['ccs'] = []
 
     # Database settings.
-    self.dbs = {}
-    for connection_name in self.config['DB']:
-      db_info = self.config['DB'][connection_name]
-      self.dbs[connection_name] = DbConn.DbConn(db_info['username'], db_info['password'], db_info['name'])
+    if 'DB' in self.config:
+      self.reset_dbs()
 
     if 'ETI' in self.config:
       # ETI settings.
@@ -127,6 +149,7 @@ class UpdateDaemon(object):
         return
     else:
       self.eti = None
+
   def preload(self):
     """
       Tasks to be run after initialization, but before updating.
@@ -152,6 +175,10 @@ class UpdateDaemon(object):
   def clear_dbs(self):
     for db in self.dbs:
       self.dbs[db].clearParams()
+
+  def reset_dbs(self):
+    self.clear_dbs()
+    self.flush_dbs()
 
   def run(self):
     """

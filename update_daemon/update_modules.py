@@ -35,14 +35,12 @@ class UpdateModules(object):
         if self.daemon.eti and self.daemon.etiUp and not self.daemon.eti.etiUp():
           self.daemon.log.debug("ETI seems to be down. Setting db index and retrying.")
           self.daemon.etiUp = False
-          self.daemon.clear_dbs()
           self.dbs['llBackup'].table('indices').set(value=0).where(name='eti_up').update()
-          self.daemon.flush_dbs()
+          self.daemon.reset_dbs()
       except:
         self.daemon.log.error("Error: " + str(traceback.format_exc()))
         self.daemon.mail.send(toEmail=self.config['MAIL']['destination'], ccEmail=self.config['MAIL']['ccs'], subject=self.daemon.name + ": Error (recoverable)", body=self.daemon.name + """ has suffered an exception in """ + function.__name__ + """() but will continue to run.\nError:\n""" + str(traceback.format_exc()))
-        self.daemon.clear_dbs()
-        self.daemon.flush_dbs()
+        self.daemon.reset_dbs()
 
   def touchTimeStamp(self):
     '''
