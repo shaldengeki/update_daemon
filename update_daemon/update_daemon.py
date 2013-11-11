@@ -177,6 +177,8 @@ class UpdateDaemon(object):
       self.dbs[db].clearParams()
 
   def reset_dbs(self):
+    if not hasattr(self, 'dbs'):
+      self.dbs = {}
     self.clear_dbs()
     self.flush_dbs()
 
