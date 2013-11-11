@@ -42,8 +42,9 @@ class UpdateModules(object):
         if hasattr(self, 'dbs'):
           for db_name in self.dbs:
             exception_message_parts.append(self.dbs[db_name].queryString())
-            exception_message_parts.append("Parameters:")
-            exception_message_parts.append(",".join(self.dbs[db_name]._params))
+            if self.dbs[db_name]._params is not None:
+              exception_message_parts.append("Parameters:")
+              exception_message_parts.append(",".join(self.dbs[db_name]._params))
         exception_message = "\n".join(exception_message_parts)
         self.daemon.log.error("Error: " + exception_message)
         self.daemon.mail.send(toEmail=self.config['MAIL']['destination'], ccEmail=self.config['MAIL']['ccs'], subject=self.daemon.name + ": Error (recoverable)", body=self.daemon.name + """ has suffered an exception in """ + function.__name__ + """() but will continue to run.\nError:\n""" + exception_message)
