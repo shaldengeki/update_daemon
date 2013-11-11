@@ -168,12 +168,13 @@ class UpdateDaemon(object):
 
   def close_dbs(self):
     # close all database connections that we can.
-    for connection_name in self.dbs:
-      try:
-        self.dbs[connection_name].close()
-      except:
-        # if we can't cleanly end the connection, pass over it.
-        pass
+    if hasattr(self, 'dbs') or self.dbs is not None:
+      for connection_name in self.dbs:
+        try:
+          self.dbs[connection_name].close()
+        except:
+          # if we can't cleanly end the connection, pass over it.
+          pass
     self.dbs = {}
 
   def reset_dbs(self):
