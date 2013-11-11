@@ -50,30 +50,6 @@ class UpdateDaemon(object):
     self.info = {}
     self.etiUp = True
 
-  def set_dbs(self):
-    # establish database connections with the configurations in self.config['DB']
-    if not hasattr(self, 'dbs') or self.dbs is None:
-      self.dbs = {}
-
-    for connection_name in self.config['DB']:
-      db_info = self.config['DB'][connection_name]
-      self.dbs[connection_name] = DbConn.DbConn(db_info['username'], db_info['password'], db_info['name'])
-
-  def close_dbs(self):
-    # close all database connections that we can.
-    for connection_name in self.dbs:
-      try:
-        self.dbs[connection_name].close()
-      except:
-        # if we can't cleanly end the connection, pass over it.
-        pass
-    self.dbs = {}
-
-  def reset_dbs(self):
-    # clear databases.
-    self.close_dbs()
-    self.set_dbs()
-
   def load_config(self, config_file=None):
     if config_file is not None:
       self.config_file = unicode(config_file)
@@ -176,11 +152,36 @@ class UpdateDaemon(object):
     for db in self.dbs:
       self.dbs[db].clearParams()
 
-  def reset_dbs(self):
-    if not hasattr(self, 'dbs'):
-      self.dbs = {}
+  def empty_dbs(self):
+    # clear parameters and commit all db connections.
     self.clear_dbs()
     self.flush_dbs()
+
+  def set_dbs(self):
+    # establish database connections with the configurations in self.config['DB']
+    if not hasattr(self, 'dbs') or self.dbs is None:
+      self.dbs = {}
+
+    for connection_name in self.config['DB']:
+      db_info = self.config['DB'][connection_name]
+      self.dbs[connection_name] = DbConn.DbConn(db_info['username'], db_info['password'], db_info['name'])
+
+  def close_dbs(self):
+    # close all database connections that we can.
+    for connection_name in self.dbs:
+      try:
+        self.dbs[connection_name].close()
+      except:
+        # if we can't cleanly end the connection, pass over it.
+        pass
+    self.dbs = {}
+
+  def reset_dbs(self):
+    # close all database connections and establish new ones.
+    self.close_dbs()
+    self.set_dbs()
+
+
 
   def run(self):
     """
