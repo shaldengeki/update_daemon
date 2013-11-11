@@ -168,7 +168,7 @@ class UpdateDaemon(object):
 
   def close_dbs(self):
     # close all database connections that we can.
-    if hasattr(self, 'dbs') or self.dbs is not None:
+    if hasattr(self, 'dbs') and self.dbs is not None:
       for connection_name in self.dbs:
         try:
           self.dbs[connection_name].close()
