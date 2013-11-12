@@ -87,38 +87,39 @@ class UpdateDaemon(object):
       # ETI settings.
       # see if the cached cookie string works.
       with open(self.config['ETI']['cookie_file'], 'r') as cookie_file:
-        self.eti = albatross.Connection(cookieString=cookie_file.read().strip(),
-                                        cookieFile = self.config['ETI']['cookie_file'],
-                                        loginSite=getattr(albatross, self.config['ETI']['site']))
-      if not self.eti.loggedIn():
-        # log in using username.
         try:
-          # acquire a lock on the cookie file so only one auth attempt happens at once.
-          with filelock.FileLock(self.config['ETI']['cookie_file'], timeout=0) as lock:
-            self.eti = albatross.Connection(username=self.config['ETI']['username'],
-                                            password=self.config['ETI']['password'],
-                                            loginSite=getattr(albatross, self.config['ETI']['site']))
-            self.config['ETI']['cookie_string'] = unicode(self.eti.cookieString)
+          self.eti = albatross.Connection(cookieString=cookie_file.read().strip(),
+                                          cookieFile = self.config['ETI']['cookie_file'],
+                                          loginSite=getattr(albatross, self.config['ETI']['site']))
+        except albatross.UnauthorizedError:
+          # log in using username.
+          try:
+            # acquire a lock on the cookie file so only one auth attempt happens at once.
+            with filelock.FileLock(self.config['ETI']['cookie_file'], timeout=0) as lock:
+              self.eti = albatross.Connection(username=self.config['ETI']['username'],
+                                              password=self.config['ETI']['password'],
+                                              loginSite=getattr(albatross, self.config['ETI']['site']))
+              self.config['ETI']['cookie_string'] = unicode(self.eti.cookieString)
 
-            # write the new cookie string to the cookie file.
-            with open(self.config['ETI']['cookie_file'], 'w') as cookie_file:
-              cookie_file.write(self.config['ETI']['cookie_string'].encode('utf-8'))
-        except filelock.FileLockException:
-          # another process is authing. reload cookie string until it's different.
-          if 'cookie_string' not in self.config['ETI']:
-            self.config['ETI']['cookie_string'] = u""
-          self.log.warning("Another process has locked the cookie string file. Refreshing cookie string file until a new one is loaded.")
-          while True:
-            with open(self.config['ETI']['cookie_file'], 'r') as cookie_string_file:
-              new_cookie_string = unicode(cookie_string_file.read().strip())
-              if new_cookie_string != self.config['ETI']['cookie_string']:
-                self.config['ETI']['cookie_string'] = new_cookie_string
-                break
+              # write the new cookie string to the cookie file.
+              with open(self.config['ETI']['cookie_file'], 'w') as cookie_file:
+                cookie_file.write(self.config['ETI']['cookie_string'].encode('utf-8'))
+          except filelock.FileLockException:
+            # another process is authing. reload cookie string until it's different.
+            if 'cookie_string' not in self.config['ETI']:
+              self.config['ETI']['cookie_string'] = u""
+            self.log.warning("Another process has locked the cookie string file. Refreshing cookie string file until a new one is loaded.")
+            while True:
+              with open(self.config['ETI']['cookie_file'], 'r') as cookie_string_file:
+                new_cookie_string = unicode(cookie_string_file.read().strip())
+                if new_cookie_string != self.config['ETI']['cookie_string']:
+                  self.config['ETI']['cookie_string'] = new_cookie_string
+                  break
 
-        # reset our eti connection.
-        self.eti = albatross.Connection(cookieString=self.config['ETI']['cookie_string'],
-                                        cookieFile=self.config['ETI']['cookie_file'],
-                                        loginSite=getattr(albatross, self.config['ETI']['site']))
+          # reset our eti connection.
+          self.eti = albatross.Connection(cookieString=self.config['ETI']['cookie_string'],
+                                          cookieFile=self.config['ETI']['cookie_file'],
+                                          loginSite=getattr(albatross, self.config['ETI']['site']))
 
       if not self.eti:
         self.log.critical("Unable to log into ETI with stored credentials.")
