@@ -12,6 +12,7 @@ import httplib
 import logging
 import logging.handlers
 
+import sys
 import time
 import traceback
 
@@ -32,7 +33,7 @@ def patch_http_response_read(func):
     return inner
 httplib.HTTPResponse.read = patch_http_response_read(httplib.HTTPResponse.read)
 
-class UpdateDaemon(object):
+class Daemon(object):
   """
     Generic update daemon class.
   """
@@ -57,13 +58,12 @@ class UpdateDaemon(object):
     self.config = configobj.ConfigObj(self.config_file)
 
     # Logging settings.
-    self.log = logging.getLogger(self.name + ".info")
+    self.log = logging.getLogger(self.name)
     self.log.setLevel(int(getattr(logging, self.config['LOG']['min_level'])))
 
     # close all logging handlers.
     for handler in self.log.handlers:
-      handler.close()
-    self.log.handlers = []
+      self.log.removeHandler(handler)
 
     # add a syslog handler.
     handler = logging.handlers.SysLogHandler(facility=logging.handlers.SysLogHandler.LOG_DAEMON, address='/dev/log')
@@ -134,6 +134,18 @@ class UpdateDaemon(object):
     """
     pass
 
+  def before_update(self):
+    """
+      Executed before the inner daemon update is run.
+    """
+    pass
+
+  def after_update(self):
+    """
+      Executed after the inner daemon loop is run.
+    """
+    pass
+
   def update(self):
     """
       Inner loop of daemon.
@@ -144,6 +156,14 @@ class UpdateDaemon(object):
     # Now call all module functions and set the last link and topicIDs to be whatever these module functions return.
     modules = self.modules.Modules(self)
     modules.update()
+
+  def on_fail(self, e, trace):
+    """
+      Executed upon failure of inner daemon loop.
+      Do some logging or send an email here.
+      Return a bool reflecting whether or not to continue running.
+    """
+    return False
 
   def flush_dbs(self):
     for db in self.dbs:
@@ -183,38 +203,27 @@ class UpdateDaemon(object):
     self.close_dbs()
     self.set_dbs()
 
-
+  def clean_up(self):
+    """
+      Run once on_fail() is called and returns false.
+    """
+    pass
 
   def run(self):
     """
       Runs the update daemon indefinitely.
     """
-    try:
-      self.preload()
-      while 1:
-        try:
+    while True:
+      try:
+        self.preload()
+        while True:
+          self.before_update()
           self.update()
-          if self.eti and not self.etiUp and self.eti.etiUp():
-            self.log.debug("ETI seems to have recovered. Setting db index.")
-            self.etiUp = True
-            self.dbs['llBackup'].table('indices').set(value=1).where(name='eti_up').update()
-        except albatross.PageLoadError:
-          if self.eti and self.etiUp and not self.eti.etiUp():
-            self.log.debug("ETI seems to be down. Setting db index and retrying.")
-            self.etiUp = False
-            self.clear_dbs()
-            self.dbs['llBackup'].table('indices').set(value=0).where(name='eti_up').update()
-        except:
-          self.log.error("Error: " + str(traceback.format_exc()))
-          self.mail.send(toEmail=self.config['MAIL']['destination'], ccEmail=self.config['MAIL']['ccs'], subject=self.name + ": Error (recoverable)", body=self.name + """ has suffered an exception but will continue to run.\nError:\n""" + str(traceback.format_exc()))
-          self.clear_dbs()
+          self.after_update()
+          time.sleep(int(self.config['loop_interval']))
+      except Exception as e:
+        exc_type, exc_value, exc_traceback = sys.exc_info()
+        if not self.on_fail(e, traceback.extract_tb(exc_traceback)):
+          self.clean_up()
+          break
         time.sleep(int(self.config['loop_interval']))
-    except albatross.PageLoadError:
-      if self.eti and self.etiUp and not self.eti.etiUp():
-        self.log.debug("ETI seems to be down. Setting db index and exiting.")
-        self.etiUp = False
-        self.clear_dbs()
-        self.dbs['llBackup'].table('indices').set(value=0).where(name='eti_up').update()
-    except:
-      self.log.critical(str(traceback.format_exc()))
-      self.mail.send(toEmail=self.config['MAIL']['destination'], ccEmail=self.config['MAIL']['ccs'], subject=self.name + ": Error (unrecoverable)", body=self.name + """ has suffered an exception and needs to exit.\nError:\n""" + str(traceback.format_exc()))

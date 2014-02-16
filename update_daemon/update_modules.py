@@ -13,7 +13,7 @@ import traceback
 import pytz
 import albatross
 
-class UpdateModules(object):
+class Modules(object):
   def __init__(self, daemon):
     self.daemon = daemon
     self.dbs = self.daemon.dbs
